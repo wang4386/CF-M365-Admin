@@ -27,54 +27,286 @@ function checkPasswordComplexity(pwd) {
     return score >= 3;
 }
 
-// --- 1. 前台注册页面 HTML ---
+// --- GitHub 图标 SVG (硬编码复用) ---
+const GITHUB_ICON = `<svg viewBox="0 0 16 16" version="1.1" width="20" height="20" aria-hidden="true" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path></svg>`;
+
+// --- 1. 前台注册页面 HTML (大幅美化版) ---
 const HTML_REGISTER_PAGE = (siteKey, skuOptions) => `
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Office 365 账号自助开通</title>
+    <title>Office 365 自助开通</title>
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f3f2f1; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .card { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.12); width: 100%; max-width: 400px; text-align: center; }
-        h2 { color: #323130; margin-bottom: 20px; font-weight: 600; }
-        input, select { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #8a8886; border-radius: 4px; box-sizing: border-box; font-size: 14px; transition: border-color 0.2s; }
-        input:focus, select:focus { border-color: #0078d4; outline: none; }
-        button { width: 100%; padding: 12px; background-color: #0078d4; color: white; border: none; border-radius: 4px; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 15px; transition: background-color 0.2s; }
-        button:hover { background-color: #106ebe; }
-        button:disabled { background-color: #c8c6c4; cursor: not-allowed; }
-        .tips { font-size: 12px; color: #605e5c; text-align: left; margin-bottom: 5px; }
-        .message { margin-top: 15px; font-size: 14px; padding: 10px; border-radius: 4px; display: none; word-break: break-all;}
-        .error { background-color: #fde7e9; color: #a80000; }
-        .success { background-color: #dff6dd; color: #107c10; }
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --bg-gradient: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+            --glass-bg: rgba(255, 255, 255, 0.85);
+            --glass-border: rgba(255, 255, 255, 0.4);
+            --text-main: #1f2937;
+            --text-sub: #6b7280;
+        }
+        @keyframes gradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: var(--bg-gradient);
+            background-size: 400% 400%;
+            animation: gradient 15s ease infinite;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            color: var(--text-main);
+        }
+        .card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1), 0 5px 15px rgba(0,0,0,0.05);
+            width: 100%;
+            max-width: 420px;
+            border: 1px solid var(--glass-border);
+            animation: fadeInUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            box-sizing: border-box;
+            margin: 20px;
+        }
+        .header-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 30px;
+        }
+        h2 { margin: 0; font-weight: 700; color: #111827; letter-spacing: -0.5px; }
+        .github-link {
+            color: var(--text-main);
+            transition: transform 0.3s ease, color 0.3s ease;
+            display: flex;
+            align-items: center;
+        }
+        .github-link:hover { transform: scale(1.1) rotate(5deg); color: var(--primary); }
+
+        /* 自定义 Input 样式 */
+        .input-group { margin-bottom: 20px; text-align: left; position: relative; }
+        .label { font-size: 13px; font-weight: 600; color: var(--text-sub); margin-bottom: 8px; display: block; }
+        input {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            box-sizing: border-box;
+            font-size: 15px;
+            transition: all 0.3s ease;
+            background: rgba(255,255,255,0.6);
+        }
+        input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
+            outline: none;
+            background: white;
+        }
+
+        /* 自定义 Select 样式 */
+        .custom-select {
+            position: relative;
+            cursor: pointer;
+            user-select: none;
+        }
+        .select-trigger {
+            background: rgba(255,255,255,0.6);
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 14px 16px;
+            font-size: 15px;
+            color: var(--text-main);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s;
+        }
+        .select-trigger:hover { border-color: #d1d5db; }
+        .select-trigger.active { border-color: var(--primary); background: white; }
+        .select-arrow { transition: transform 0.3s; width: 10px; height: 10px; border-right: 2px solid #6b7280; border-bottom: 2px solid #6b7280; transform: rotate(45deg) translateY(-2px); }
+        .select-trigger.active .select-arrow { transform: rotate(225deg) translateY(-2px); }
+        
+        .options-container {
+            position: absolute;
+            top: 110%;
+            left: 0;
+            right: 0;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-10px);
+            transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+            z-index: 100;
+            overflow: hidden;
+            border: 1px solid #f3f4f6;
+        }
+        .options-container.open { opacity: 1; visibility: visible; transform: translateY(0); }
+        .option {
+            padding: 12px 16px;
+            transition: background 0.2s;
+            font-size: 14px;
+        }
+        .option:hover { background: #f3f4f6; color: var(--primary); }
+        .option.selected { background: #e0e7ff; color: var(--primary); font-weight: 600; }
+
+        /* 按钮与消息 */
+        button {
+            width: 100%;
+            padding: 14px;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+            box-shadow: 0 4px 6px rgba(79, 70, 229, 0.2);
+        }
+        button:hover { background-color: var(--primary-hover); transform: translateY(-2px); box-shadow: 0 6px 12px rgba(79, 70, 229, 0.3); }
+        button:active { transform: translateY(0); }
+        button:disabled { background-color: #9ca3af; cursor: not-allowed; transform: none; box-shadow: none; }
+        
+        .message { margin-top: 20px; font-size: 14px; padding: 12px; border-radius: 8px; display: none; line-height: 1.5; text-align: left; animation: fadeInUp 0.3s; }
+        .error { background-color: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+        .success { background-color: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+
+        .cf-turnstile { display: flex; justify-content: center; margin: 20px 0; }
+        
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+            font-size: 12px;
+            color: var(--text-sub);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+        .footer a { color: var(--text-sub); text-decoration: none; display: flex; align-items: center; gap: 6px; transition: color 0.2s; }
+        .footer a:hover { color: var(--primary); }
     </style>
 </head>
 <body>
     <div class="card">
-        <h2>Office 365 自助开通</h2>
+        <div class="header-row">
+            <h2>Office 365 自助开通</h2>
+            <a href="https://github.com/zixiwangluo/CF-M365-Admin" target="_blank" class="github-link" title="View Source on GitHub">
+                ${GITHUB_ICON}
+            </a>
+        </div>
+        
         <form id="regForm">
-            <div class="tips">订阅类型</div>
-            <select id="skuName">
-                ${skuOptions.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
-            </select>
+            <!-- 隐藏的真实 Input，用于存储选择的值 -->
+            <input type="hidden" id="skuName" name="skuName" value="">
+            
+            <div class="input-group">
+                <span class="label">选择订阅类型</span>
+                <div class="custom-select">
+                    <div class="select-trigger" id="selectTrigger">
+                        <span>请选择...</span>
+                        <div class="select-arrow"></div>
+                    </div>
+                    <div class="options-container" id="optionsContainer">
+                        ${skuOptions.map((opt, index) => `<div class="option" data-value="${opt}">${opt}</div>`).join('')}
+                    </div>
+                </div>
+            </div>
 
-            <div class="tips">用户名 (仅允许字母和数字)</div>
-            <input type="text" id="username" placeholder="输入用户名" required pattern="[a-zA-Z0-9]+">
-            
-            <div class="tips">密码 (8位以上，大写/小写/数字/符号 4选3，不可含用户名)</div>
-            <input type="password" id="password" placeholder="设置密码" required>
-            
-            <div style="margin-top: 15px; display: flex; justify-content: center;">
-                <div class="cf-turnstile" data-sitekey="${siteKey}"></div>
+            <div class="input-group">
+                <span class="label">用户名 (仅字母和数字)</span>
+                <input type="text" id="username" placeholder="例如: admin" required pattern="[a-zA-Z0-9]+">
             </div>
             
-            <button type="submit" id="btn">立即创建</button>
+            <div class="input-group">
+                <span class="label">密码 (8位+, 含大/小写/数字/符号 3种)</span>
+                <input type="password" id="password" placeholder="设置您的强密码" required>
+            </div>
+            
+            <div class="cf-turnstile" data-sitekey="${siteKey}"></div>
+            
+            <button type="submit" id="btn">立即创建账号</button>
         </form>
+        
         <div id="msg" class="message"></div>
+        
+        <div class="footer">
+            <div>Powered By CloudFlare Workers</div>
+            <a href="https://github.com/zixiwangluo/CF-M365-Admin" target="_blank">
+                ${GITHUB_ICON}
+                <span>CF-M365-Admin</span>
+            </a>
+        </div>
     </div>
+
     <script>
+        // --- 自定义下拉框逻辑 ---
+        const trigger = document.getElementById('selectTrigger');
+        const container = document.getElementById('optionsContainer');
+        const options = document.querySelectorAll('.option');
+        const hiddenInput = document.getElementById('skuName');
+        const triggerText = trigger.querySelector('span');
+
+        // 默认选择第一项
+        if (options.length > 0) {
+            selectOption(options[0]);
+        }
+
+        function toggleSelect(e) {
+            e.stopPropagation();
+            trigger.classList.toggle('active');
+            container.classList.toggle('open');
+        }
+
+        function closeSelect() {
+            trigger.classList.remove('active');
+            container.classList.remove('open');
+        }
+
+        function selectOption(option) {
+            const val = option.getAttribute('data-value');
+            hiddenInput.value = val;
+            triggerText.innerText = val;
+            options.forEach(o => o.classList.remove('selected'));
+            option.classList.add('selected');
+            closeSelect();
+        }
+
+        trigger.addEventListener('click', toggleSelect);
+        
+        options.forEach(opt => {
+            opt.addEventListener('click', (e) => {
+                e.stopPropagation();
+                selectOption(opt);
+            });
+        });
+
+        document.addEventListener('click', closeSelect);
+
+        // --- 密码与表单逻辑 ---
         function checkComplexity(pwd) {
             let score = 0;
             if (/[a-z]/.test(pwd)) score++;
@@ -90,10 +322,17 @@ const HTML_REGISTER_PAGE = (siteKey, skuOptions) => `
             const msg = document.getElementById('msg');
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
+            const skuVal = hiddenInput.value;
+
+            if (!skuVal) {
+                msg.style.display = 'block'; msg.className = 'message error';
+                msg.innerText = '⚠️ 请先选择订阅类型';
+                return;
+            }
 
             if (password.toLowerCase().includes(username.toLowerCase())) {
                 msg.style.display = 'block'; msg.className = 'message error';
-                msg.innerText = '❌ 密码不能包含用户名（或用户名的部分），请重新设置';
+                msg.innerText = '❌ 安全警告：密码不能包含用户名，请重设';
                 return;
             }
 
@@ -103,10 +342,11 @@ const HTML_REGISTER_PAGE = (siteKey, skuOptions) => `
                 return;
             }
 
-            btn.disabled = true; btn.innerText = '正在创建中...'; msg.style.display = 'none';
+            btn.disabled = true; btn.innerHTML = '<span style="display:inline-block;animation:spin 1s linear infinite">↻</span> 正在部署资源...';
+            msg.style.display = 'none';
 
             const formData = new FormData();
-            formData.append('skuName', document.getElementById('skuName').value);
+            formData.append('skuName', skuVal);
             formData.append('username', username);
             formData.append('password', password);
             formData.append('cf-turnstile-response', document.querySelector('[name="cf-turnstile-response"]').value);
@@ -117,8 +357,10 @@ const HTML_REGISTER_PAGE = (siteKey, skuOptions) => `
                 msg.style.display = 'block';
                 if (data.success) {
                     msg.className = 'message success';
-                    msg.innerHTML = '✅ 成功！账号: ' + data.email + '<br>请前往 office.com 登录';
+                    msg.innerHTML = '🎉 <b>开通成功！</b><br>账号: ' + data.email + '<br>密码: (您刚才设置的)<br><a href="https://portal.office.com" target="_blank" style="color:#15803d;font-weight:bold;margin-top:5px;display:inline-block">👉 前往 Office.com 登录</a>';
                     document.getElementById('regForm').reset();
+                    // 重置下拉框到默认
+                    if (options.length > 0) selectOption(options[0]);
                     if(typeof turnstile !== 'undefined') turnstile.reset();
                 } else {
                     msg.className = 'message error';
@@ -127,114 +369,157 @@ const HTML_REGISTER_PAGE = (siteKey, skuOptions) => `
                 }
             } catch (err) {
                 msg.style.display = 'block'; msg.className = 'message error';
-                msg.innerText = '网络错误，请稍后重试';
+                msg.innerText = '网络连接似乎断了，请稍后重试';
             } finally {
-                btn.disabled = false; btn.innerText = '立即创建';
+                btn.disabled = false; btn.innerText = '立即创建账号';
             }
         });
+        
+        // 添加简单的旋转动画样式
+        const styleSheet = document.createElement("style");
+        styleSheet.innerText = "@keyframes spin { 100% { transform: rotate(360deg); } }";
+        document.head.appendChild(styleSheet);
     </script>
 </body>
 </html>
 `;
 
-// --- 2. 后台管理页面 HTML ---
+// --- 2. 后台管理页面 HTML (美化版) ---
 const HTML_ADMIN_PAGE = (skuMapJson) => `
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Office 365 用户管理</title>
+    <title>Office 365 用户管理控制台</title>
     <style>
-        body { font-family: "Segoe UI", sans-serif; padding: 20px; background: #f0f2f5; }
-        .container { max-width: 1400px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        h1 { margin-top: 0; color: #333; }
-        .toolbar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
-        button { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px;}
-        .btn-refresh { background: #0078d4; color: white; }
-        .btn-del { background: #d93025; color: white; }
-        .btn-pwd { background: #f0ad4e; color: white; }
-        .btn-lic { background: #00897b; color: white; } /* 新增按钮样式 */
-        .btn-lic:hover { background: #00695c; }
-
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
-        th { background: #f8f9fa; cursor: pointer; user-select: none; white-space: nowrap;}
-        th:hover { background: #e9ecef; }
+        :root { --admin-primary: #0078d4; --admin-bg: #f3f2f1; }
+        body { font-family: "Segoe UI", -apple-system, sans-serif; padding: 0; margin: 0; background: var(--admin-bg); color: #201f1e; }
+        .nav { background: white; padding: 15px 30px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center;}
+        .nav h1 { margin: 0; font-size: 20px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+        .container { max-width: 1400px; margin: 30px auto; padding: 0 20px; }
         
-        .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000;}
-        .modal-content { background: white; padding: 25px; border-radius: 8px; width: 600px; max-width: 90%; max-height: 80vh; overflow-y: auto;}
-        .close { float: right; cursor: pointer; font-size: 24px; color: #666;}
+        .card { background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); padding: 25px; margin-bottom: 20px; animation: fadeIn 0.5s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .toolbar { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+        button { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px; transition: all 0.2s; display: flex; align-items: center; gap: 6px;}
+        button:hover { opacity: 0.9; transform: translateY(-1px); }
+        button:active { transform: translateY(0); }
+        
+        .btn-refresh { background: white; color: var(--admin-primary); border: 1px solid var(--admin-primary); }
+        .btn-refresh:hover { background: #f0f8ff; }
+        .btn-del { background: #d13438; color: white; box-shadow: 0 2px 5px rgba(209, 52, 56, 0.3); }
+        .btn-pwd { background: #ffaa44; color: white; box-shadow: 0 2px 5px rgba(255, 170, 68, 0.3); }
+        .btn-lic { background: #107c10; color: white; box-shadow: 0 2px 5px rgba(16, 124, 16, 0.3); }
+
+        table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 10px; font-size: 14px; }
+        th { background: #f8f9fa; padding: 15px; text-align: left; border-bottom: 2px solid #eee; color: #605e5c; font-weight: 600; cursor: pointer; user-select: none; }
+        td { padding: 15px; border-bottom: 1px solid #f3f2f1; vertical-align: middle; transition: background 0.2s; }
+        tr:hover td { background: #faf9f8; }
+        tr:last-child td { border-bottom: none; }
+        
+        .tag { padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; display:inline-block; margin:2px;}
+        .tag-blue { background: #e0efff; color: #005a9e; }
+        
+        .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.4); backdrop-filter: blur(4px); justify-content: center; align-items: center; z-index: 1000; animation: fadeIn 0.2s;}
+        .modal-content { background: white; padding: 30px; border-radius: 12px; width: 600px; max-width: 90%; max-height: 85vh; overflow-y: auto; box-shadow: 0 10px 30px rgba(0,0,0,0.2); transform: scale(0.95); animation: popIn 0.3s forwards;}
+        @keyframes popIn { to { transform: scale(1); } }
+        
+        .close { float: right; cursor: pointer; font-size: 24px; color: #605e5c; transition: color 0.2s; }
         .close:hover { color: #000; }
         
-        .loading { text-align: center; padding: 20px; color: #666; }
-        input[type="checkbox"] { transform: scale(1.2); }
-        .tag { padding: 2px 6px; border-radius: 4px; font-size: 12px; background: #eee; color: #555; display:inline-block; margin:2px;}
-        .tag-blue { background: #e0f7fa; color: #006064; }
-        .arrow { display: inline-block; width: 15px; text-align: center; }
+        .loading { text-align: center; padding: 40px; color: #605e5c; }
+        input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
+        
+        /* 许可证条 */
+        .progress-bar { background: #edebe9; border-radius: 4px; height: 10px; width: 120px; display: inline-block; overflow: hidden; vertical-align: middle; margin-left: 10px;}
+        .progress-fill { height: 100%; background: var(--admin-primary); transition: width 0.5s ease; }
 
-        /* 许可证表格样式 */
-        #licTable { width: 100%; margin-top: 15px; }
-        #licTable th { background: #eee; }
-        .progress-bar { background: #e0e0e0; border-radius: 4px; height: 8px; width: 100px; display: inline-block; overflow: hidden; vertical-align: middle; margin-left: 10px;}
-        .progress-fill { height: 100%; background: #0078d4; }
-        .lic-id { font-size: 12px; color: #888; display: block; margin-top: 2px;}
+        .footer { text-align: center; padding: 20px; color: #888; font-size: 12px; display: flex; justify-content: center; align-items: center; gap: 8px;}
+        .footer a { color: #888; text-decoration: none; display: flex; align-items: center; gap: 5px; }
+        .footer a:hover { color: var(--admin-primary); }
     </style>
 </head>
 <body>
+    <div class="nav">
+        <h1><span>⚡</span> Office 365 Admin</h1>
+        <div style="font-size:12px; color:#666;">安全模式: Enabled</div>
+    </div>
+    
     <div class="container">
-        <h1>用户管理控制台</h1>
-        <div class="toolbar">
-            <button class="btn-refresh" onclick="loadUsers()">刷新列表</button>
-            <button class="btn-lic" onclick="openLicModal()">查询订阅用量</button> <button class="btn-pwd" onclick="openPwdModal()">修改/重置密码</button>
-            <button class="btn-del" onclick="bulkDelete()">批量删除</button>
+        <div class="card">
+            <div class="toolbar">
+                <button class="btn-refresh" onclick="loadUsers()">🔄 刷新列表</button>
+                <button class="btn-lic" onclick="openLicModal()">📊 查看订阅余量</button> 
+                <button class="btn-pwd" onclick="openPwdModal()">🔑 重置密码</button>
+                <button class="btn-del" onclick="bulkDelete()">🗑️ 批量删除</button>
+            </div>
+            <div id="status" style="margin-bottom:10px; height:20px; color:#107c10; font-weight:600;"></div>
+            
+            <div style="overflow-x: auto;">
+                <table id="mainTable">
+                    <thead>
+                        <tr>
+                            <th width="40"><input type="checkbox" id="selectAll" onclick="toggleAll(this)"></th>
+                            <th onclick="sortTable('displayName')">用户名 <span id="sort-displayName"></span></th>
+                            <th onclick="sortTable('userPrincipalName')">账号(邮箱) <span id="sort-userPrincipalName"></span></th>
+                            <th>当前订阅</th>
+                            <th onclick="sortTable('createdDateTime')">创建时间 <span id="sort-createdDateTime"></span></th>
+                            <th>UUID</th>
+                        </tr>
+                    </thead>
+                    <tbody id="userTableBody"></tbody>
+                </table>
+            </div>
+            <div class="loading" id="loading">正在从 Microsoft Graph 加载数据...</div>
         </div>
-        <div id="status" style="margin-bottom:10px; height:20px; color:green;"></div>
-        <table id="mainTable">
-            <thead>
-                <tr>
-                    <th width="40"><input type="checkbox" id="selectAll" onclick="toggleAll(this)"></th>
-                    <th onclick="sortTable('displayName')">用户名 <span id="sort-displayName" class="arrow"></span></th>
-                    <th onclick="sortTable('userPrincipalName')">账号(邮箱) <span id="sort-userPrincipalName" class="arrow"></span></th>
-                    <th>当前订阅</th>
-                    <th onclick="sortTable('createdDateTime')">创建时间 <span id="sort-createdDateTime" class="arrow"></span></th>
-                    <th>ID</th>
-                </tr>
-            </thead>
-            <tbody id="userTableBody"></tbody>
-        </table>
-        <div class="loading" id="loading">加载中...</div>
+        
+        <div class="footer">
+             Powered by CloudFlare Workers
+             <span>|</span>
+             <a href="https://github.com/zixiwangluo/CF-M365-Admin" target="_blank">
+                ${GITHUB_ICON} CF-M365-Admin
+             </a>
+        </div>
     </div>
 
+    <!-- 密码模态框 -->
     <div id="pwdModal" class="modal">
         <div class="modal-content" style="width: 400px;">
             <span class="close" onclick="closeModal('pwdModal')">&times;</span>
-            <h3>重置密码</h3>
-            <div>
-                <label><input type="radio" name="pwdType" value="auto" checked onclick="togglePwdInput(false)"> 自动生成密码</label>
-                <br><br>
-                <label><input type="radio" name="pwdType" value="custom" onclick="togglePwdInput(true)"> 自定义密码</label>
+            <h3 style="margin-top:0">重置密码</h3>
+            <div style="margin: 20px 0;">
+                <label style="display:block; margin-bottom:10px; cursor:pointer;">
+                    <input type="radio" name="pwdType" value="auto" checked onclick="togglePwdInput(false)"> 
+                    🎲 自动生成高强度密码
+                </label>
+                <label style="display:block; margin-bottom:10px; cursor:pointer;">
+                    <input type="radio" name="pwdType" value="custom" onclick="togglePwdInput(true)"> 
+                    ✏️ 自定义密码
+                </label>
             </div>
-            <input type="text" id="customPwd" placeholder="输入新密码" style="width:100%; margin-top:10px; padding:8px; display:none;">
-            <div style="margin-top:20px; text-align:right;">
-                <button class="btn-pwd" onclick="submitPwdReset()">确认重置</button>
+            <input type="text" id="customPwd" placeholder="输入新密码" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:4px; display:none; box-sizing:border-box;">
+            <div style="margin-top:25px; text-align:right;">
+                <button class="btn-pwd" onclick="submitPwdReset()" style="width:100%; justify-content:center;">确认重置</button>
             </div>
-            <div id="pwdResult" style="margin-top:10px; font-size:12px; color:blue; word-break:break-all;"></div>
+            <div id="pwdResult" style="margin-top:15px; font-size:13px; color:#005a9e; word-break:break-all; background:#f0f8ff; padding:10px; border-radius:4px; display:none;"></div>
         </div>
     </div>
 
+    <!-- 许可证模态框 -->
     <div id="licModal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeModal('licModal')">&times;</span>
-            <h3>订阅许可证概览</h3>
-            <div id="licLoading" style="display:none; text-align:center;">正在查询 Microsoft Graph...</div>
+            <h3 style="margin-top:0">全局订阅使用情况</h3>
+            <div id="licLoading" style="display:none; text-align:center; padding:20px;">正在查询...</div>
             <table id="licTable">
                 <thead>
                     <tr>
                         <th>订阅名称 / SKU ID</th>
-                        <th>总数</th>
-                        <th>已用</th>
-                        <th>剩余</th>
+                        <th>总量</th>
+                        <th>已分配</th>
+                        <th>剩余可用</th>
                     </tr>
                 </thead>
                 <tbody id="licBody"></tbody>
@@ -268,8 +553,12 @@ const HTML_ADMIN_PAGE = (skuMapJson) => `
 
         function renderTable(users) {
             const tbody = document.getElementById('userTableBody');
+            if(users.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px;">暂无用户</td></tr>';
+                return;
+            }
             tbody.innerHTML = users.map(u => {
-                let licenses = '无订阅';
+                let licenses = '<span style="color:#999">无订阅</span>';
                 if (u.assignedLicenses && u.assignedLicenses.length > 0) {
                     licenses = u.assignedLicenses.map(l => {
                         const name = ID_TO_NAME[l.skuId] || l.skuId;
@@ -279,11 +568,11 @@ const HTML_ADMIN_PAGE = (skuMapJson) => `
                 return \`
                 <tr>
                     <td><input type="checkbox" class="u-check" value="\${u.id}" data-name="\${u.userPrincipalName}"></td>
-                    <td>\${u.displayName}</td>
+                    <td><strong>\${u.displayName}</strong></td>
                     <td>\${u.userPrincipalName}</td>
                     <td>\${licenses}</td>
                     <td>\${new Date(u.createdDateTime).toLocaleString()}</td>
-                    <td style="font-size:10px; color:#999;">\${u.id}</td>
+                    <td style="font-size:11px; color:#aaa; font-family:monospace;">\${u.id}</td>
                 </tr>\`;
             }).join('');
         }
@@ -294,7 +583,7 @@ const HTML_ADMIN_PAGE = (skuMapJson) => `
             else sortConfig = { key: key, dir: 1 };
 
             resetSortIcons();
-            document.getElementById('sort-' + key).innerText = sortConfig.dir === 1 ? '↑' : '↓';
+            document.getElementById('sort-' + key).innerText = sortConfig.dir === 1 ? '↓' : '↑';
 
             allUsers.sort((a, b) => {
                 let valA = a[key] || '';
@@ -319,15 +608,19 @@ const HTML_ADMIN_PAGE = (skuMapJson) => `
         async function bulkDelete() {
             const selected = getSelected();
             if (selected.length === 0) return alert('请先选择用户');
-            if (!confirm(\`确定要删除选中的 \${selected.length} 个用户吗？\n此操作不可恢复！\`)) return;
-            document.getElementById('status').innerText = '正在删除...';
+            if (!confirm(\`⚠️ 高危操作确认\n\n确定要永久删除选中的 \${selected.length} 个用户吗？\n此操作不可恢复！\`)) return;
+            
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerText = '正在执行批量删除...';
+            
             for (const u of selected) {
                 try {
                     const res = await fetch(API_BASE + '/users/' + u.id + '?token=' + getToken(), { method: 'DELETE' });
                     if(res.status === 403) console.error(u.name + ' 删除失败: 受保护的账户');
                 } catch(e) {}
             }
-            document.getElementById('status').innerText = '操作结束';
+            statusDiv.innerText = '✅ 删除操作完成';
+            setTimeout(() => statusDiv.innerText = '', 3000);
             loadUsers();
         }
 
@@ -338,6 +631,7 @@ const HTML_ADMIN_PAGE = (skuMapJson) => `
         function openPwdModal() { 
             if (getSelected().length === 0) return alert('请先选择用户'); 
             document.getElementById('pwdModal').style.display = 'flex'; 
+            document.getElementById('pwdResult').style.display = 'none';
             document.getElementById('pwdResult').innerText = ''; 
         }
         function togglePwdInput(show) { document.getElementById('customPwd').style.display = show ? 'block' : 'none'; }
@@ -355,7 +649,10 @@ const HTML_ADMIN_PAGE = (skuMapJson) => `
             let password = (type === 'custom') ? document.getElementById('customPwd').value : '';
             if (type === 'custom' && !password) return alert('请输入密码');
             
-            document.getElementById('pwdResult').innerText = '正在处理...';
+            const resultDiv = document.getElementById('pwdResult');
+            resultDiv.style.display = 'block';
+            resultDiv.innerText = '正在请求 Graph API...';
+            
             let successList = [];
             for (const u of selected) {
                 const finalPwd = (type === 'auto') ? generatePass() : password;
@@ -368,10 +665,10 @@ const HTML_ADMIN_PAGE = (skuMapJson) => `
                     successList.push(\`\${u.name} -> \${finalPwd}\`);
                 } catch(e) {}
             }
-            document.getElementById('pwdResult').innerHTML = '操作完成。<br><b>新密码列表:</b><br>' + successList.join('<br>');
+            resultDiv.innerHTML = '<b>✅ 操作完成，请复制保存:</b><br><br>' + successList.join('<br>');
         }
 
-        // --- 许可证查询相关 (新增) ---
+        // --- 许可证查询相关 ---
         async function openLicModal() {
             document.getElementById('licModal').style.display = 'flex';
             document.getElementById('licBody').innerHTML = '';
@@ -383,7 +680,6 @@ const HTML_ADMIN_PAGE = (skuMapJson) => `
                 
                 if(!res.ok) throw new Error(data.error || 'Fetch Error');
                 
-                // 渲染许可证表格
                 document.getElementById('licBody').innerHTML = data.map(lic => {
                     const friendlyName = ID_TO_NAME[lic.skuId] ? 
                         \`<span style="font-weight:bold; color:#0078d4">\${ID_TO_NAME[lic.skuId]}</span>\` : 
@@ -396,7 +692,7 @@ const HTML_ADMIN_PAGE = (skuMapJson) => `
                     <tr>
                         <td>
                             \${friendlyName}
-                            <span class="lic-id">\${lic.skuId}</span>
+                            <div style="font-size:11px; color:#999; margin-top:2px;">\${lic.skuId}</div>
                         </td>
                         <td>\${lic.total}</td>
                         <td>
@@ -405,7 +701,7 @@ const HTML_ADMIN_PAGE = (skuMapJson) => `
                                 <div class="progress-fill" style="width: \${usagePercent}%"></div>
                             </div>
                         </td>
-                        <td style="color: \${remaining < 5 ? 'red' : 'green'}; font-weight:bold;">
+                        <td style="color: \${remaining < 5 ? '#d13438' : '#107c10'}; font-weight:bold;">
                             \${remaining}
                         </td>
                     </tr>
@@ -556,13 +852,13 @@ export default {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ secret: env.CF_TURNSTILE_SECRET, response: turnstileToken, remoteip: ip })
                 });
-                if (!(await verifyRes.json()).success) return Response.json({ success: false, message: '人机验证失败' });
+                if (!(await verifyRes.json()).success) return Response.json({ success: false, message: '人机验证失败，请刷新页面重试' });
 
                 let skuId = null;
                 try { skuId = JSON.parse(env.SKU_MAP || '{}')[skuName]; } catch(e){}
-                if (!skuId) return Response.json({ success: false, message: '无效的订阅类型' });
+                if (!skuId) return Response.json({ success: false, message: '请选择有效的订阅类型' });
 
-                if (!/^[a-zA-Z0-9]+$/.test(username)) return Response.json({ success: false, message: '用户名格式错误' });
+                if (!/^[a-zA-Z0-9]+$/.test(username)) return Response.json({ success: false, message: '用户名格式错误，仅允许字母和数字' });
                 
                 // 后端二次校验
                 if (password.toLowerCase().includes(username.toLowerCase())) {
@@ -599,7 +895,7 @@ export default {
                     debugLog(env, 'Create User Error:', err);
                     
                     const errMsg = err.error?.message || '';
-                    if (errMsg.includes('another object')) return Response.json({ success: false, message: '该用户名已被占用' });
+                    if (errMsg.includes('another object')) return Response.json({ success: false, message: '该用户名已被占用，请换一个试试' });
                     if (errMsg.includes('Password cannot contain username')) return Response.json({ success: false, message: '创建失败：密码不能包含用户名' });
                     if (errMsg.includes('PasswordProfile') || errMsg.includes('weak')) return Response.json({ success: false, message: '创建失败：密码过于简单或不符合策略' });
 
@@ -624,7 +920,7 @@ export default {
 
                 return Response.json({ success: true, email: userEmail });
             } catch (e) {
-                return Response.json({ success: false, message: '系统错误: ' + e.message });
+                return Response.json({ success: false, message: '系统繁忙或错误: ' + e.message });
             }
         }
 
