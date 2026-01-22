@@ -1,5 +1,5 @@
 /**
- * CF-M365-Admin v4.0 (Zen-iOS Design & Secure Login)
+ * CF-M365-Admin v4.1 (Fix Auth Loop & Add License Query)
  * * [环境变量配置]
  * AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET: 微软 Graph API 配置
  * CF_TURNSTILE_SECRET: Turnstile 后端密钥 (必须)
@@ -78,6 +78,13 @@ const HTML_HEAD = (title) => `
             border: 1px solid rgba(255, 255, 255, 0.6);
             box-shadow: 0 0 0 1px rgba(0,0,0,0.03), 0 24px 48px -12px rgba(0, 0, 0, 0.08);
         }
+        .glass-modal {
+             background-color: rgba(255, 255, 255, 0.85);
+             backdrop-filter: blur(24px);
+             -webkit-backdrop-filter: blur(24px);
+             border: 1px solid rgba(255, 255, 255, 0.8);
+             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
         .input-zen {
             background-color: rgba(243, 244, 246, 0.6);
             box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.03);
@@ -106,7 +113,6 @@ const HTML_HEAD = (title) => `
         .btn-secondary:active { transform: scale(0.98); }
         .btn-secondary:hover { background-color: #F9FAFB; }
         
-        /* 隐藏滚动条但保留功能 */
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         
@@ -157,6 +163,12 @@ ${HTML_HEAD('Admin Login')}
     </div>
     <script>
         lucide.createIcons();
+        
+        // 如果URL中有token参数，自动跳转到干净的URL，防止无限刷新
+        if(window.location.search.includes('token=')) {
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = document.getElementById('loginBtn');
@@ -329,9 +341,9 @@ ${HTML_HEAD('M365 Console')}
                 <p class="text-gray-500 text-sm font-medium mt-1">M365 Subscription & User Management</p>
             </div>
             <div class="flex items-center gap-3">
-                <div class="px-4 py-2 bg-white/60 rounded-full text-xs font-bold text-gray-500 border border-white/60 shadow-sm backdrop-blur-md">
-                    v4.0.0
-                </div>
+                <button onclick="handleLogout()" class="px-4 py-2 bg-white/60 hover:bg-red-50 hover:text-red-600 rounded-full text-xs font-bold text-gray-500 border border-white/60 shadow-sm backdrop-blur-md transition-all flex items-center gap-2">
+                    <i data-lucide="log-out" class="w-3 h-3"></i> 登出
+                </button>
             </div>
         </div>
 
@@ -352,8 +364,11 @@ ${HTML_HEAD('M365 Console')}
             <div id="view-users" class="p-8 h-full flex flex-col">
                 <div class="flex flex-wrap items-center justify-between gap-4 mb-8">
                     <div class="flex items-center gap-3">
-                        <button onclick="loadUsers()" class="btn-secondary w-10 h-10 rounded-xl flex items-center justify-center">
+                        <button onclick="loadUsers()" class="btn-secondary w-10 h-10 rounded-xl flex items-center justify-center" title="刷新">
                             <i data-lucide="refresh-ccw" class="w-4 h-4"></i>
+                        </button>
+                        <button onclick="showLicenses()" class="btn-secondary px-5 py-2.5 rounded-xl text-sm font-semibold text-gray-600 flex items-center gap-2" title="查看订阅用量">
+                            <i data-lucide="pie-chart" class="w-4 h-4"></i> 订阅用量
                         </button>
                         <span class="text-sm font-bold text-gray-400 uppercase tracking-widest pl-2" id="user-count-label">Loading...</span>
                     </div>
@@ -431,11 +446,40 @@ ${HTML_HEAD('M365 Console')}
             <div id="loading-overlay" class="absolute inset-0 bg-white/40 backdrop-blur-sm flex items-center justify-center z-50 hidden">
                 <div class="loading-spinner w-8 h-8 border-gray-400/30 border-l-gray-800"></div>
             </div>
+
+            <!-- License Modal -->
+            <div id="license-modal" class="absolute inset-0 z-40 bg-white/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
+                <div class="glass-modal w-full max-w-2xl rounded-[32px] p-8 relative flex flex-col max-h-[80vh]">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-xl font-bold text-gray-900">订阅用量详情</h3>
+                        <button onclick="closeLicenseModal()" class="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                            <i data-lucide="x" class="w-5 h-5 text-gray-500"></i>
+                        </button>
+                    </div>
+                    <div class="overflow-auto flex-1 no-scrollbar">
+                         <table class="w-full text-left">
+                            <thead>
+                                <tr class="border-b border-gray-200">
+                                    <th class="py-3 text-[10px] font-bold text-gray-400 uppercase">SKU Name</th>
+                                    <th class="py-3 text-[10px] font-bold text-gray-400 uppercase">Total</th>
+                                    <th class="py-3 text-[10px] font-bold text-gray-400 uppercase">Used</th>
+                                    <th class="py-3 text-[10px] font-bold text-gray-400 uppercase">Available</th>
+                                </tr>
+                            </thead>
+                            <tbody id="license-list" class="text-sm"></tbody>
+                        </table>
+                    </div>
+                     <div class="mt-6 pt-4 border-t border-gray-200/50 text-xs text-gray-500 font-mono break-all">
+                        * SKUID 用于配置 SKU_MAP 环境变量
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
         const API_BASE = '${adminPath}/api';
+        const AUTH_PATH = '${adminPath}';
         const HIDDEN_USER = ${JSON.stringify(hiddenUser || '')}.toLowerCase();
         let usersCache = [];
         let invitesCache = [];
@@ -447,6 +491,11 @@ ${HTML_HEAD('M365 Console')}
             loadInvites(true); // silent load
             lucide.createIcons();
         });
+
+        async function handleLogout() {
+             await fetch(AUTH_PATH + '/logout', { method: 'POST' });
+             window.location.reload();
+        }
 
         // Tab Switcher
         function switchTab(tab) {
@@ -466,12 +515,45 @@ ${HTML_HEAD('M365 Console')}
             if (tab === 'invites') loadInvites();
         }
 
+        // --- License Modal ---
+        async function showLicenses() {
+            setLoading(true);
+            try {
+                const res = await fetch(API_BASE + '/licenses');
+                if(!res.ok) throw new Error('Failed');
+                const data = await res.json();
+                
+                const tbody = document.getElementById('license-list');
+                tbody.innerHTML = data.map(l => {
+                    const available = l.total - l.used;
+                    return \`
+                    <tr class="border-b border-gray-100 last:border-0">
+                        <td class="py-3">
+                            <div class="font-medium text-gray-800">\${l.skuPartNumber}</div>
+                            <div class="text-[10px] text-gray-400 font-mono">\${l.skuId}</div>
+                        </td>
+                        <td class="py-3 font-mono">\${l.total}</td>
+                        <td class="py-3 font-mono">\${l.used}</td>
+                        <td class="py-3 font-mono font-bold \${available < 1 ? 'text-red-500' : 'text-green-600'}">\${available}</td>
+                    </tr>
+                    \`;
+                }).join('');
+                
+                document.getElementById('license-modal').classList.remove('hidden');
+            } catch(e) { alert('加载订阅信息失败'); }
+            setLoading(false);
+        }
+
+        function closeLicenseModal() {
+            document.getElementById('license-modal').classList.add('hidden');
+        }
+
         // --- Users Logic ---
         async function loadUsers() {
             setLoading(true);
             try {
                 const res = await fetch(API_BASE + '/users');
-                if (res.status === 401) return window.location.reload(); // Cookie expired
+                if (res.status === 401) return window.location.reload(); 
                 const data = await res.json();
                 usersCache = data.value || [];
                 renderUsers();
@@ -726,15 +808,19 @@ export default {
                 return Response.json({ success: false, message: 'Invalid Token' }, { status: 401 });
             }
 
+            // 登出 API
+            if (url.pathname === `${adminPath}/logout` && request.method === 'POST') {
+                 const headers = new Headers();
+                 headers.append('Set-Cookie', `m365_admin_token=; Path=/; Max-Age=0; HttpOnly; SameSite=Strict; Secure`);
+                 return new Response(JSON.stringify({ success: true }), { status: 200, headers });
+            }
+
             // --- API 路由 (需要鉴权) ---
             if (url.pathname.startsWith(`${adminPath}/api`)) {
                 if (!(await checkAuth(request, env))) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
                 // Users API
                 if (url.pathname === `${adminPath}/api/users`) {
-                    if (request.method === 'DELETE') {
-                         // Batch delete is not supported on this path, handled by single ID route
-                    }
                     if (request.method === 'GET') return handleGetUsers(env);
                 }
                 
@@ -750,6 +836,11 @@ export default {
                     if (request.method === 'POST') return handleCreateInvites(request, env);
                     if (request.method === 'DELETE') return handleDeleteInvites(request, env);
                 }
+
+                // Licenses API (New)
+                if (url.pathname === `${adminPath}/api/licenses`) {
+                    if (request.method === 'GET') return handleGetLicenses(env);
+                }
             }
         }
 
@@ -760,14 +851,9 @@ export default {
 // --- 业务逻辑处理器 ---
 
 async function checkAuth(req, env) {
-    // 优先检查 Cookie
+    // 仅检查 Cookie
     const cookie = req.headers.get('Cookie');
     if (cookie && cookie.includes(`m365_admin_token=${env.ADMIN_TOKEN}`)) return true;
-    
-    // 兼容旧版 URL Token (可选，如果不需要可删除)
-    const url = new URL(req.url);
-    if (url.searchParams.get('token') === env.ADMIN_TOKEN) return true;
-    
     return false;
 }
 
@@ -916,6 +1002,28 @@ async function handleDeleteInvites(req, env) {
         return Response.json({ success: true });
     }
     return Response.json({ error: 'Invalid parameters' }, { status: 400 });
+}
+
+// 获取许可证 (New)
+async function handleGetLicenses(env) {
+    try {
+        const token = await getAccessToken(env);
+        const res = await fetch('https://graph.microsoft.com/v1.0/subscribedSkus', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        
+        const result = data.value.map(s => ({
+            skuPartNumber: s.skuPartNumber,
+            skuId: s.skuId,
+            total: s.prepaidUnits.enabled,
+            used: s.consumedUnits
+        }));
+        
+        return Response.json(result);
+    } catch (e) {
+        return Response.json({ error: e.message }, { status: 500 });
+    }
 }
 
 // --- OAuth ---
